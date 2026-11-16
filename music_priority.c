@@ -3,9 +3,10 @@
 // background while downloading other apps
 
 #include <stdio.h>
+#include <stdlib.h>
 
 struct process {
-    char name;      // lets say you want to listen to olivia dean while dowlading bambu studio and 
+    char name[20];      // lets say you want to listen to olivia dean while dowlading bambu studio and 
                     // scrolling through pintrest. hence we would need Spotify, Bambu_studio and 
                     // Pintrest as our processes as they each need time with the CPU
 
@@ -14,30 +15,42 @@ struct process {
 };
 
 void run(int use_priority) {
-    struct process music    = {'Spotify', 1, 0}; 
-    struct process download = {'Bambu Studio', 3, 1000};
-    struct process browser = {'Pintrest', 2, 800};  // big file: always busy
-     
-    int skips = 0;
+    struct process apps[3] = {
+    {"Spotify", 1, 0}, // needs 2 ms of work every 10 ms
+    {"Bambu Studio", 3, 1000}, // big file: always busy
+    {"Pintrest", 2, 0} // needs 2 ms of work every 5 ms
+    };
 
-    printf("%-13s", use_priority ? "Priority:" : "No priority:");
-    for (int t = 0; t < 30; t++) {             // 1 loop = 1 ms
-        if (t % 10 == 0) {                     // every 10 ms...
-            if (music.work > 0) skips++;       // music still waiting? SKIP!
-            music.work = 2;                    // music needs 2 ms of CPU
+    struct process *spotify   = &apps[0];
+    struct process *pinterest = &apps[1];
+    struct process *bambu     = &apps[2];
+    int skips = 0, lags = 0;
+
+ printf("%-13s", use_priority ? "Priority:" : "No priority:");
+    for (int t = 0; t < 30; t++) {               // 1 loop = 1 ms
+        if (t % 10 == 0) {                       // every 10 ms...
+            if (spotify->work > 0) skips++;      // if spotify is still waiting for cpu time, song SKIPS
+            spotify->work = 2;
+        }
+        if (t % 5 == 0) {                        // every 5 ms...
+            if (pinterest->work > 0) lags++;     // if browers is still waiting for cpu time, it LAGS
+            pinterest->work = 2;
         }
 
-        struct process *current = &download;   // download has the CPU
-        if (use_priority && music.work > 0 &&
-            music.priority < download.priority &&
-            music.priority < browser.priority)
-            current = &music;                  // music preempts download
+        struct process *current = bambu;         // the download got the CPU first
+        if (use_priority) {
+            // pick the most important app that still needs the CPU
+            for (int i = 0; i < 3; i++)
+                if (apps[i].work > 0 && apps[i].priority < current->priority)
+                    current = &apps[i];
+        }
 
-        current->work--;                       // run it for 1 ms
-        printf("%c", current->name);
+        current->work--;                         // run it for 1 ms
+        printf("%c", current->name[0]);          // S, P, or B
     }
-    if (music.work > 0) skips++;
-    printf("  -> %d skips\n", skips);
+    if (spotify->work > 0) skips++;
+    if (pinterest->work > 0) lags++;
+    printf("  -> %d skips, %d lags\n", skips, lags);
 }
 
 int main(void) {
